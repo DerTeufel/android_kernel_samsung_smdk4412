@@ -1,0 +1,96 @@
+From cec36e58c4a3781e95ce4a2067bf706b36a546f9 Mon Sep 17 00:00:00 2001
+From: arter97 <qkrwngud825@gmail.com>
+Date: Wed, 10 Jul 2013 15:40:52 +0900
+Subject: [PATCH] ARM: fixed memcpy issues
+
+---
+ arch/arm/include/asm/string.h | 4 ++--
+ arch/arm/kernel/armksyms.c    | 4 ++--
+ arch/arm/lib/Makefile         | 4 ++--
+ lib/string.c                  | 8 ++++----
+ 4 files changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/arch/arm/include/asm/string.h b/arch/arm/include/asm/string.h
+index 2169a30..cf4f3aa 100644
+--- a/arch/arm/include/asm/string.h
++++ b/arch/arm/include/asm/string.h
+@@ -12,10 +12,10 @@ extern char * strrchr(const char * s, int c);
+ #define __HAVE_ARCH_STRCHR
+ extern char * strchr(const char * s, int c);
+ 
+-//#define __HAVE_ARCH_MEMCPY
++#define __HAVE_ARCH_MEMCPY
+ extern void * memcpy(void *, const void *, __kernel_size_t);
+ 
+-//#define __HAVE_ARCH_MEMMOVE
++#define __HAVE_ARCH_MEMMOVE
+ extern void * memmove(void *, const void *, __kernel_size_t);
+ 
+ #define __HAVE_ARCH_MEMCHR
+diff --git a/arch/arm/kernel/armksyms.c b/arch/arm/kernel/armksyms.c
+index 44ddc93..764202c 100644
+--- a/arch/arm/kernel/armksyms.c
++++ b/arch/arm/kernel/armksyms.c
+@@ -86,8 +86,8 @@ EXPORT_SYMBOL(__raw_writesl);
+ EXPORT_SYMBOL(strchr);
+ EXPORT_SYMBOL(strrchr);
+ EXPORT_SYMBOL(memset);
+-//EXPORT_SYMBOL(memcpy);
+-//EXPORT_SYMBOL(memmove);
++EXPORT_SYMBOL(memcpy);
++EXPORT_SYMBOL(memmove);
+ EXPORT_SYMBOL(memchr);
+ EXPORT_SYMBOL(__memzero);
+ 
+diff --git a/arch/arm/lib/Makefile b/arch/arm/lib/Makefile
+index 332b4f4..c307632 100644
+--- a/arch/arm/lib/Makefile
++++ b/arch/arm/lib/Makefile
+@@ -6,8 +6,8 @@
+ 
+ lib-y		:= backtrace.o changebit.o csumipv6.o csumpartial.o   \
+ 		   csumpartialcopy.o csumpartialcopyuser.o clearbit.o \
+-		   delay.o findbit.o memchr.o		      	      \
+-		    memset.o memzero.o setbit.o              \
++		   delay.o findbit.o memchr.o memcpy.o		      \
++		   memmove.o memset.o memzero.o setbit.o              \
+ 		   strchr.o strrchr.o                                 \
+ 		   testchangebit.o testclearbit.o testsetbit.o        \
+ 		   ashldi3.o ashrdi3.o lshrdi3.o muldi3.o             \
+diff --git a/lib/string.c b/lib/string.c
+index 4e8858f..ed16688 100644
+--- a/lib/string.c
++++ b/lib/string.c
+@@ -585,7 +585,7 @@ void *memset(void *s, int c, size_t count)
+ EXPORT_SYMBOL(memset);
+ #endif
+ 
+-//#ifndef __HAVE_ARCH_MEMCPY
++#ifndef __HAVE_ARCH_MEMCPY
+ /**
+  * memcpy - Copy one area of memory to another
+  * @dest: Where to copy to
+@@ -605,9 +605,9 @@ void *memcpy(void *dest, const void *src, size_t count)
+ 	return dest;
+ }
+ EXPORT_SYMBOL(memcpy);
+-//#endif
++#endif
+ 
+-//#ifndef __HAVE_ARCH_MEMMOVE
++#ifndef __HAVE_ARCH_MEMMOVE
+ /**
+  * memmove - Copy one area of memory to another
+  * @dest: Where to copy to
+@@ -631,7 +631,7 @@ void *memmove(void *dest, const void *src, size_t count)
+ 	return dest;
+ }
+ EXPORT_SYMBOL(memmove);
+-//#endif
++#endif
+ 
+ #ifndef __HAVE_ARCH_MEMCMP
+ /**
+-- 
+1.8.2.3
+
