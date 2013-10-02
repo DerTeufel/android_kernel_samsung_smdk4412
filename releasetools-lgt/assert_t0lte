@@ -1,0 +1,12 @@
+assert(getprop("ro.product.device") == "t0lte" || getprop("ro.build.product") == "t0lte" || 
+       getprop("ro.product.device") == "t0ltexx" || getprop("ro.build.product") == "t0ltexx" || 
+       getprop("ro.product.device") == "GT-N7105" || getprop("ro.build.product") == "GT-N7105" || 
+       getprop("ro.product.device") == "t0ltedv" || getprop("ro.build.product") == "t0ltedv" || 
+       getprop("ro.product.device") == "GT-N7105T" || getprop("ro.build.product") == "GT-N7105T" || 
+       getprop("ro.product.device") == "t0lteatt" || getprop("ro.build.product") == "t0lteatt" || 
+       getprop("ro.product.device") == "SGH-I317" || getprop("ro.build.product") == "SGH-I317" || 
+       getprop("ro.product.device") == "t0ltetmo" || getprop("ro.build.product") == "t0ltetmo" || 
+       getprop("ro.product.device") == "SGH-T889" || getprop("ro.build.product") == "SGH-T889" || 
+       getprop("ro.product.device") == "t0ltecan" || getprop("ro.build.product") == "t0ltecan" || 
+       getprop("ro.product.device") == "t0ltevl" || getprop("ro.build.product") == "t0ltevl" || 
+       getprop("ro.product.device") == "SGH-I317M" || getprop("ro.build.product") == "SGH-I317M");

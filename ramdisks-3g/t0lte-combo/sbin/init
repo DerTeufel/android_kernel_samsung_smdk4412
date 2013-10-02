@@ -67,7 +67,7 @@ $BB mv -f /roms/cm101/* /
   	# low power mode
  	echo 0 > /proc/sys/kernel/rom_feature_set
  	$BB cp -f lpm.rc init.rc
-  	$BB rm -f init.smdk4x12.rc
+  	$BB rm -f init.SHW-M440S.rc
    else
    	echo 7 > /proc/sys/kernel/rom_feature_set
 	$BB mkdir -p /system/lib/modules
@@ -75,8 +75,8 @@ $BB mv -f /roms/cm101/* /
 
 	if [ "$SECONDARYBOOT" == "1" ];then
 	  echo "secondary boot"
-  	  $BB mv /init.smdk4x12.rc.2 /init.smdk4x12.rc
-  	  $BB mv /fstab.smdk4x12.2 /fstab.smdk4x12
+  	  $BB mv /init.SHW-M440S.rc.2 /init.SHW-M440S.rc
+  	  $BB mv /fstab.SHW-M440S.2 /fstab.SHW-M440S
 
 	  $BB echo "#!/system/bin/sh" > /system/etc/init.d/10sd_mount
 	  $BB echo "/system/bin/sdcard /.secondrom/media /mnt/shell/emulated 1023 1023" >> /system/etc/init.d/10sd_mount
@@ -90,13 +90,13 @@ $BB mv -f /roms/sammy41/* /
   	# low power mode
  	echo 0 > /proc/sys/kernel/rom_feature_set
  	$BB cp -f lpm.rc init.rc
-  	$BB rm -f init.smdk4x12.rc
+  	$BB rm -f init.SHW-M440S.rc
    else
 	echo 2 > /proc/sys/kernel/rom_feature_set
 	if [ "$SECONDARYBOOT" == "1" ];then
 	  echo "secondary boot"
-  	  $BB mv /init.smdk4x12.rc.2 /init.smdk4x12.rc
-  	  $BB mv /fstab.smdk4x12.2 /fstab.smdk4x12
+  	  $BB mv /init.SHW-M440S.rc.2 /init.SHW-M440S.rc
+  	  $BB mv /fstab.SHW-M440S.2 /fstab.SHW-M440S
 	fi
    fi
 fi
