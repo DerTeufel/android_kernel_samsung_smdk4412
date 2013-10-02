@@ -1,0 +1,602 @@
+#!/sbin/busybox sh
+
+cat << ENDCONFIG
+<settingsRoot>
+  <settingsTab name="CPU">
+    <settingsPane description="These settings control CFS (Complete Fair Scheduler) Task Scheduler Settings" name="CFS Settings">
+      <checkbox description="Disabling GENTLE_FAIR_SLEEPERS may give you better UI responsiveness." name="GENTLE_FAIR_SLEEPERS" action="schedfeat GENTLE_FAIR_SLEEPERS" label="GENTLE_FAIR_SLEEPERS"/>
+    </settingsPane>
+
+    <settingsPane description="" 
+		name="CPU Idle and Power Settings">
+      <spinner description="Sets the CPU Idle Mode. Idle+LPA is the default and recommended for S3." name="CPU Idle Mode" action="generic /sys/module/cpuidle_exynos4/parameters/enable_mask">
+             <spinnerItem name="Idle + LPA (default)" value="2"/> 
+             <spinnerItem name="AFTR + LPA" value="3"/> 
+             <spinnerItem name="AFTR only" value="1"/> 
+             <spinnerItem name="Idle only" value="0"/> 
+      </spinner>
+      <seekBar description="Sets the sched_mc value which changes the cpu scheduler behaviour for multi-cpu systems. 0 is kernel's default value which turns sched_mc off. Setting it to 1 means that the first core will be tried to be loaded more and setting it to 2 will bias task wake-ups to semi-idle cpu package for power savings. (default: 0)"
+            name="sched_mc" action="generic /sys/devices/system/cpu/sched_mc_power_savings" unit="" min="0" reversed="false" step="1" max="2"/>
+     </settingsPane>
+
+    <settingsPane description=""
+		name="CPU Undervolting">
+      <spinner description="Sets the CPU undervolting value which will be applied during boot time only. It will not have any effect until you restart your device. Remember: if you change this value and your device doesn't boot you will have to reset extweaks settings using CWM recovery. This value will be applied to all CPU steps before any script or app execution. If you use any script or voltage control app this setting may be overriden by those." name="CPU Undervolting" action="generic /tmp/cpu_undervolting">
+             <spinnerItem name="No Undervolting" value="0"/> 
+             <spinnerItem name=" -25 mV" value="-25"/> 
+             <spinnerItem name=" -50 mV" value="-50"/> 
+             <spinnerItem name=" -75 mV" value="-75"/> 
+             <spinnerItem name="-100 mV" value="-100"/> 
+      </spinner>
+    </settingsPane>
+
+    <settingsPane description=""
+		name="CPU Scaling Settings">
+       <spinner description="Sets the number of CPUs to be used in hotplugging. Only effective for pegasusq governor." name="Max CPU Lock" action="max-cpu-lock">
+             <spinnerItem name="Quad core mode (unlocked,default)" value="0"/> 
+             <spinnerItem name="Triple core mode" value="3"/> 
+             <spinnerItem name="Dual core mode" value="2"/> 
+             <spinnerItem name="Single core mode" value="1"/> 
+       </spinner>
+       <spinner description="This will set the default CPU governor. Default CPU governor will only be set during early stages of booting (before init.d execution) and can be overriden by later scripts or apps." name="Default CPU Governor" action="generic /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor">
+             <spinnerItem name="devilq" value="devilq"/> 
+             <spinnerItem name="pegasusq" value="pegasusq"/> 
+             <spinnerItem name="lulzactiveq" value="lulzactiveq"/> 
+             <spinnerItem name="zzmoove" value="zzmoove"/> 
+             <spinnerItem name="hotplug" value="hotplug"/> 
+             <spinnerItem name="performance" value="performance"/> 
+       </spinner>
+      <spinner description="Set the maximum freqency the CPU scales up to. Default: `expr \`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq\` / 1000` MHz." 
+               name="CPU max frequency" 
+               action="generic /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq">"
+`
+cat /sys/devices/system/cpu/cpu0/cpufreq/UV_uV_table | \
+sed -e 's/mhz//g;s/://g' | awk '{ print $1, $2 }' | \
+while read FREQ UVOLT; do
+  echo '         <spinnerItem name="'$FREQ' MHz" value="'${FREQ}000'"/>'
+done
+`
+       </spinner>
+      <spinner description="Set the minimum freqency the CPU scales down to. Default: `expr \`cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq\` / 1000` MHz." 
+               name="CPU min frequency" 
+               action="generic /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq">"
+`
+cat /sys/devices/system/cpu/cpu0/cpufreq/UV_uV_table | \
+sed -e 's/mhz//g;s/://g' | awk '{ print $1, $2 }' | \
+while read FREQ UVOLT; do
+  echo '         <spinnerItem name="'$FREQ' MHz" value="'${FREQ}000'"/>'
+done
+`
+       </spinner>
+    </settingsPane>
+  </settingsTab>
+
+  <settingsTab name="CPU_UV">
+
+    <settingsPane description="Apply the settings on boot only if the desired settings prove to be stable, else the device ends up in a boot-loop. If turned off, the displayed values do not correspond the current live values but the saved profile values, some inconsistencies may occur on applying." 
+                  name="CPU control switch">
+      <checkbox description="If enabled, the below settings will be applied at boot." 
+                name="Set CPU settings on boot" 
+                action="controlswitch CPU"
+                label="Set on boot"/>
+    </settingsPane>
+
+    <settingsPane description="Decreasing voltage will lower power consumption of the CPU. Increasing it on overclocked frequencies improves stability. Too low voltage may cause instabilities and freezes." 
+                  name="CPU voltage control">
+
+`
+cat /sys/devices/system/cpu/cpu0/cpufreq/UV_uV_table | \
+sed -e 's/mhz//g;s/://g' | awk '{ print $1, $2 }' | \
+while read FREQ UVOLT; do
+  echo '      <seekBar  description="Default voltage: '$UVOLT'µV"
+	        name="'${FREQ}' MHz step" 
+                action="cpuvolt '${FREQ}'"
+                unit=" µV" min="600000" reversed="false" step="12500" max="1475000"/>"'
+  CPUFREQLIST="$CPUFREQLIST $FREQ"
+done
+`
+    </settingsPane>
+  </settingsTab>
+
+  <settingsTab name="GPU">
+    <settingsPane description="GPU Frequency Settings. Default frequencies are: 160, 266, 350, 440MHz and 533MHz. Warning: Changing GPU frequency or voltages may cause lockups or damage on your device." name="GPUFreq">
+      <spinner description="Changes the first (lowest) GPU frequency step" name="GPU Freq Step1" action="gpu-freq 1">
+             <spinnerItem name="266MHz" value="266"/> 
+             <spinnerItem name="200MHz" value="200"/> 
+             <spinnerItem name="160MHz" value="160"/> 
+             <spinnerItem name="108MHz" value="108"/> 
+             <spinnerItem name="54MHz" value="54"/> 
+      </spinner>
+      <spinner description="Changes the second GPU frequency step" name="GPU Freq Step2" action="gpu-freq 2">
+             <spinnerItem name="400MHz" value="400"/> 
+             <spinnerItem name="350MHz" value="350"/> 
+             <spinnerItem name="333MHz" value="333"/> 
+             <spinnerItem name="300MHz" value="300"/> 
+             <spinnerItem name="275MHz" value="275"/> 
+             <spinnerItem name="266MHz" value="266"/> 
+             <spinnerItem name="200MHz" value="200"/> 
+             <spinnerItem name="160MHz" value="160"/> 
+             <spinnerItem name="108MHz" value="108"/> 
+      </spinner>
+      <spinner description="Changes the third GPU frequency step" name="GPU Freq Step3" action="gpu-freq 3">
+             <spinnerItem name="640MHz" value="640"/> 
+             <spinnerItem name="600MHz" value="600"/> 
+             <spinnerItem name="533MHz" value="533"/> 
+             <spinnerItem name="440MHz" value="440"/> 
+             <spinnerItem name="400MHz" value="400"/> 
+             <spinnerItem name="350MHz" value="350"/> 
+             <spinnerItem name="333MHz" value="333"/> 
+             <spinnerItem name="300MHz" value="300"/> 
+             <spinnerItem name="275MHz" value="275"/> 
+             <spinnerItem name="266MHz" value="266"/> 
+             <spinnerItem name="200MHz" value="200"/> 
+             <spinnerItem name="160MHz" value="160"/> 
+      </spinner>
+      <spinner description="Changes the fourth GPU frequency step" name="GPU Freq Step4" action="gpu-freq 4">
+             <spinnerItem name="700MHz" value="700"/> 
+             <spinnerItem name="666MHz" value="666"/> 
+             <spinnerItem name="640MHz" value="640"/> 
+             <spinnerItem name="600MHz" value="600"/> 
+             <spinnerItem name="533MHz" value="533"/> 
+             <spinnerItem name="440MHz" value="440"/> 
+             <spinnerItem name="400MHz" value="400"/> 
+             <spinnerItem name="350MHz" value="350"/> 
+             <spinnerItem name="333MHz" value="333"/> 
+             <spinnerItem name="300MHz" value="300"/> 
+             <spinnerItem name="275MHz" value="275"/> 
+             <spinnerItem name="266MHz" value="266"/> 
+             <spinnerItem name="200MHz" value="200"/> 
+      </spinner>
+      <spinner description="Changes the fifth GPU frequency step" name="GPU Freq Step5" action="gpu-freq 5">
+             <spinnerItem name="800MHz" value="800"/> 
+             <spinnerItem name="700MHz" value="700"/> 
+             <spinnerItem name="666MHz" value="666"/> 
+             <spinnerItem name="640MHz" value="640"/> 
+             <spinnerItem name="600MHz" value="600"/> 
+             <spinnerItem name="533MHz" value="533"/> 
+             <spinnerItem name="440MHz" value="440"/> 
+             <spinnerItem name="400MHz" value="400"/> 
+             <spinnerItem name="350MHz" value="350"/> 
+             <spinnerItem name="333MHz" value="333"/> 
+             <spinnerItem name="300MHz" value="300"/> 
+             <spinnerItem name="275MHz" value="275"/> 
+             <spinnerItem name="266MHz" value="266"/> 
+             <spinnerItem name="200MHz" value="200"/> 
+             <spinnerItem name="160MHz" value="160"/> 
+             <spinnerItem name="108MHz" value="108"/> 
+             <spinnerItem name="54MHz" value="54"/> 
+      </spinner>
+    </settingsPane>
+
+    <settingsPane description="GPU Voltage Levels." name="GPU Voltage Levels">
+      <seekBar description="GPU Voltage for the first (lowest) step" 
+		name="GPU Voltage Level1" action="gpu-voltage 1" unit="mV" min="600" reversed="false" step="25" max="1200"/>
+      <seekBar description="GPU Voltage for the second step" 
+		name="GPU Voltage Level2" action="gpu-voltage 2" unit="mV" min="600" reversed="false" step="25" max="1200"/>
+      <seekBar description="GPU Voltage for the third step" 
+		name="GPU Voltage Level3" action="gpu-voltage 3" unit="mV" min="600" reversed="false" step="25" max="1200"/>
+      <seekBar description="GPU Voltage for the fourth step" 
+		name="GPU Voltage Level4" action="gpu-voltage 4" unit="mV" min="600" reversed="false" step="25" max="1200"/>
+      <seekBar description="GPU Voltage for the fifth step" 
+		name="GPU Voltage Level5" action="gpu-voltage 5" unit="mV" min="600" reversed="false" step="25" max="1200"/>
+    </settingsPane>
+
+    <settingsPane description="GPU load thresholds to change between frequency steps." name="GPU Thresholds">
+      <seekBar description="GPU threshold to jump up from first to second step" 
+		name="GPU Threshold 1-UP" action="gpu-thresh 1UP" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump down from second to first step" 
+		name="GPU Threshold 2-DOWN" action="gpu-thresh 2DOWN" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump up from second to third step" 
+		name="GPU Threshold 2-UP" action="gpu-thresh 2UP" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump down from third to second step" 
+		name="GPU Threshold 3-DOWN" action="gpu-thresh 3DOWN" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump up from third to fourth step" 
+		name="GPU Threshold 3-UP" action="gpu-thresh 3UP" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump down from fourth to third step" 
+		name="GPU Threshold 4-DOWN" action="gpu-thresh 4DOWN" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump up from fourth to fifth step" 
+		name="GPU Threshold 4-UP" action="gpu-thresh 4UP" unit="%" min="0" reversed="false" step="5" max="100"/>
+      <seekBar description="GPU threshold to jump down from fifth to fourth step" 
+		name="GPU Threshold 5-DOWN" action="gpu-thresh 5DOWN" unit="%" min="0" reversed="false" step="5" max="100"/>
+    </settingsPane>
+  </settingsTab>
+
+  <settingsTab name="Audio">
+    <settingsPane description="Speaker Tuning Settings" name="Speaker Tuning">
+      <checkbox description="Enable speaker tuning for better bass response on main speakers" name="Speaker Tuning" action="generic01 /sys/class/misc/scoobydoo_sound/speaker_tuning" label="Speaker Tuning"/>
+      <seekBar description="Speaker Amplification Offset. 0 means stock value. Having too much amplification may cause distortion." 
+		name="Speaker Amplification Offset" action="generic /sys/class/misc/scoobydoo_sound/speaker_offset" unit="" min="-6" reversed="false" step="1" max="6"/>
+    </settingsPane>
+
+    <settingsPane description="Headphone Amplification Settings" name="Headphone Amplification">
+      <seekBar description="Headphone Amplifier Level (0-63 which corresponds to -57db-6db)" 
+		name="Headphone Amplifier" action="generic /sys/class/misc/scoobydoo_sound/headphone_amplifier_level" unit="" min="0" reversed="false" step="1" max="63"/>
+    </settingsPane>
+
+    <settingsPane description="3D Effect Settings" name="3D Effect">
+      <spinner description="3D effect" name="3D Effect" action="generic /sys/class/misc/scoobydoo_sound/stereo_expansion">
+             <spinnerItem name="Disabled" value="0"/> 
+             <spinnerItem name="Enabled" value="1"/> 
+      </spinner>
+      <seekBar description="3D Effect Gain Level (0-31)" 
+		name="3D Effect Gain" action="generic /sys/class/misc/scoobydoo_sound/stereo_expansion_gain" unit="" min="0" reversed="false" step="1" max="31"/>
+    </settingsPane>
+
+    <settingsPane description="EQ Settings" name="EQ Settings">
+      <spinner description="Choose which equalizer settings to use: Presets or Graphical Equalizer." name="EQ Presets" action="eq-presets eq_selection">
+             <spinnerItem name="Use presets" value="0"/> 
+             <spinnerItem name="Use graphical equalizer" value="1"/> 
+      </spinner>
+    </settingsPane>
+
+    <settingsPane description="EQ Presets" name="EQ Presets">
+      <spinner description="Hardware Equalizer Presets" name="EQ Presets" action="eq-presets eq_preset">
+             <spinnerItem name="Flat (Disabled)" value="0"/> 
+             <spinnerItem name="Bass-extreme" value="1"/> 
+             <spinnerItem name="Bass and Treble" value="2"/> 
+             <spinnerItem name="Treble" value="3"/> 
+             <spinnerItem name="Classic" value="4"/> 
+             <spinnerItem name="Pleasant for ears" value="5"/> 
+             <spinnerItem name="Eargasm" value="6"/> 
+      </spinner>
+    </settingsPane>
+
+    <settingsPane description="Graphical Equalizer" name="Graphical Equalizer">
+      <seekBar description="" 
+		name="Band1 gain" action="eq-presets eq_band1" unit=" dB" min="-12" reversed="false" step="1" max="12"/>
+      <seekBar description="" 
+		name="Band2 gain" action="eq-presets eq_band2" unit=" dB" min="-12" reversed="false" step="1" max="12"/>
+      <seekBar description="" 
+		name="Band3 gain" action="eq-presets eq_band3" unit=" dB" min="-12" reversed="false" step="1" max="12"/>
+      <seekBar description="" 
+		name="Band4 gain" action="eq-presets eq_band4" unit=" dB" min="-12" reversed="false" step="1" max="12"/>
+      <seekBar description="" 
+		name="Band5 gain" action="eq-presets eq_band5" unit=" dB" min="-12" reversed="false" step="1" max="12"/>
+    </settingsPane>
+
+    <settingsPane description="EQ Extras" name="EQ Extras">
+      <seekBar description="This will prevent distortion by decreasing the output volume by the selected amount. Leave it 0 if you do not have a distortion problem." 
+		name="Negative Digital Gain" action="eq-presets digital_gain" unit=" dB" min="0" reversed="false" step="1" max="12"/>
+    </settingsPane>
+
+    <settingsPane description="Optimization, conversion quality, signal processing and effect settings" name="Other Settings">
+      <spinner description="Tuned WM1811 FLL to generate clock source" name="FLL Tuning" action="generic /sys/class/misc/scoobydoo_sound/fll_tuning">
+             <spinnerItem name="Disabled" value="0"/> 
+             <spinnerItem name="Enabled" value="1"/> 
+      </spinner>
+      <spinner description="For 48kHz sample rate, the DAC oversample rate is 128fs when this option is selected, which makes the music sound better." name="DAC OverSampling" action="generic /sys/class/misc/scoobydoo_sound/dac_osr128">
+             <spinnerItem name="Disabled" value="0"/> 
+             <spinnerItem name="Enabled" value="1"/> 
+      </spinner>
+      <spinner description="Bypass analog channel mixer and redirect the sound directly to the output." name="dac direct" action="generic /sys/class/misc/scoobydoo_sound/dac_direct">
+             <spinnerItem name="Disabled" value="0"/> 
+             <spinnerItem name="Enabled" value="1"/> 
+      </spinner>
+      <spinner description="This forces the output to be mono even if the source is stereo" name="Force Mono" action="generic /sys/class/misc/scoobydoo_sound/mono_downmix">
+             <spinnerItem name="Disabled" value="0"/> 
+             <spinnerItem name="Enabled" value="1"/> 
+      </spinner>
+    </settingsPane>
+  </settingsTab>
+
+  <settingsTab name="Screen">
+    <settingsPane description="Other screen related settings" name="Other Settings">
+       <checkbox description="mDNIe sharpness tweaks from hardcore. Requires reboot to be effective." name="mDNIe Sharpness Tweaks" action="generic /tmp/mdniemod" label="mDNIe Sharpness Tweaks"/>
+       <checkbox description="Enable inverting the screen colors by quickly pressing Home button 4 times" name="mDNIe Negative Toggle" action="generic01 /sys/module/gpio_keys/parameters/mdnie_shortcut_enabled" label="mDNIe Negative Toggle"/>
+       <spinner description="Set CPU freq boost level when you touch the screen. Lower levels will help with the battery with the cost of UI lags" name="Touch Boost Level" action="generic /sys/devices/virtual/misc/touchboost/input_boost_freq">
+             <spinnerItem name="1200MHz" value="1200000"/> 
+             <spinnerItem name="1000MHz" value="1000000"/> 
+             <spinnerItem name="900MHz" value="900000"/> 
+             <spinnerItem name="800MHz" value="800000"/> 
+             <spinnerItem name="700MHz" value="700000"/> 
+             <spinnerItem name="600MHz" value="600000"/> 
+             <spinnerItem name="500MHz" value="500000"/> 
+             <spinnerItem name="200MHz (default)" value="200000"/> 
+       </spinner>
+       <checkbox description="Enable or Disable Touch-to-Wake feature." name="Touch-to-Wake" action="generic01 /sys/devices/virtual/misc/touchwake/enabled" label="Touch-to-Wake"/>
+       <seekBar description="Touch-to-Wake Delay Time Setting. Setting Delay Time=0 is Slide2Wake" 
+		name="Touch-to-Wake Delay" action="generic /sys/devices/virtual/misc/touchwake/delay" unit=" ms" min="10000" reversed="false" step="10000" max="90000"/>
+       <seekBar description="FB earlysuspend delay to run CRT animation when you turn the screen off." 
+		name="FB Earlysuspend Delay" action="generickmem fbearlysuspend_delay 0 int" unit=" ms" min="0" reversed="false" step="100" max="500"/>
+    </settingsPane>
+  </settingsTab>
+
+  <settingsTab name="MDNIE">
+    <settingsPane description="mobile Digital Natural Image engine control. Samsungs hardware image post-processor controls virtually any image manipulation. All control master switches, if left as delta controls, will negate the sequence setting if checked. Master sequence has SCR and CS enabled by default."
+		  name="Global controls">
+      <checkbox  description="Register intercept acts like a hook and will enable catching scenario settings and modifying them through delta controls. If a scenario does not have a setting (register) in its base sequence, then it cannot be modified by the hook."
+                name="Register intercept" 
+                action="generic01 /sys/class/misc/mdnie/hook_intercept"
+                label="Enable register hook"/>
+      <checkbox  description="Enabling the master sequence will disable and ignore Samsungs profiles and scenarios, the ROM controls will be disabled."
+                name="Master sequence" 
+                action="generic01 /sys/class/misc/mdnie/sequence_intercept"
+                label="Enable master sequence"/>
+    </settingsPane>
+
+    <settingsPane description="Uses mDNIe to bypass the backlight driver brightness and decrease brightness by reducing luminance on the the channel RGB values. It allows to reduce brightness beyond the stock minimum."
+		  name="Digital screen brightness">
+      <seekBar  description="The amount of luminance to be shaved off from the colour channel components."
+		name="Brightness reduction"
+                action="generic /sys/class/misc/mdnie/brightness_reduction"
+                unit="" min="0" reversed="false" step="1" max="128"/>
+      <seekBar  description="The stock backlight driver ignores brightness values below 20 (0-255) and values below that point do not have any effect on brightness. The takeover point is the point in the brightness curve where the digital brightness reduction takes effect. The brightness reduction is weighted linearly from full configured value to zero on the range of zero brigtness to the takeover point. If the takeover point is beyond 20, then both hardware and digital brightness reduction can take place. This can help with having a less abrupt brightness curve caused by the digital reduction."
+		name="Takeover point"
+                action="generic /sys/class/misc/mdnie/brightness_takeover_point"
+                unit="" min="0" reversed="false" step="1" max="64"/>
+      <seekBar  description="Positive delta to be applied on top system brightness. Used only for the digital reduction logic during stock ROM auto-brightness activation, can be used to brighten back up the reduction value by shifting the interpreted brightness value without sacrificing minimum brightness in manual mode."
+		name="Auto-brightness input delta"
+                action="generic /sys/class/misc/mdnie/brightness_input_delta"
+                unit="" min="0" reversed="false" step="1" max="64"/>
+    </settingsPane>
+
+    <settingsPane description="Work exclusively on the stock video player."
+		  name="DNR and HDR control">
+      <checkbox  description="" 
+                name="Toggle digital noise reduction" 
+                action="generic01 /sys/class/misc/mdnie/hook_control/s_digital_noise_reduction"
+                label="Toggle digital noise reduction for video playback"/>
+      <checkbox  description="" 
+                name="Toggle high dynamic range" 
+                action="generic01 /sys/class/misc/mdnie/hook_control/s_high_dynamic_range"
+                label="Toggle HDR for video playback"/>
+    </settingsPane>
+
+    <settingsPane description="Chroma saturation works in the HSL colour space, modifying saturation will dilute the hue with white or darken with black. Variations in chroma are achieved by adding different amounts of a neutral gray of the same value as the color you want to alter."
+		  name="Chroma saturation control">
+      <checkbox  description="Factory settings override the controls." 
+                name="Chroma saturation factory settings" 
+                action="generic01 /sys/class/misc/mdnie/hook_control/s_factory_chroma_saturation"
+                label="Toggle factory settings"/>
+      <seekBar  description="Saturation weight/multipliers for RGB/YCM chroma gains"
+		name="Chroma saturation weight"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_weight"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+      <seekBar  description=""
+		name="Red gain"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_red"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+      <seekBar  description=""
+		name="Green gain"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_green"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+      <seekBar  description=""
+		name="Blue gain"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_blue"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+      <seekBar  description=""
+		name="Yellow gain"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_yellow"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+      <seekBar  description=""
+		name="Cyan gain"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_cyan"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+      <seekBar  description=""
+		name="Magenta gain"
+                action="generic2 /sys/class/misc/mdnie/hook_control/cs_magenta"
+                unit="" min="-16" reversed="false" step="1" max="32"/>
+    </settingsPane>
+
+    <settingsPane description="Changes white colour temperature"
+		  name="White colour temperature control">
+      <checkbox  description="" 
+                name="Colour temperature master switch" 
+                action="generic01 /sys/class/misc/mdnie/hook_control/s_MCM"
+                label="Toggle colour temperature control"/>
+      <seekBar  description="Starting point is 6500K."
+		name="Colour temperature"
+                action="generic2 /sys/class/misc/mdnie/hook_control/mcm_temperature"
+                unit="00K" min="-20" reversed="false" step="1" max="20"/>
+    </settingsPane>
+
+    <settingsPane description="The controls is divided in 8 channels, RGB, YCM, W and K. SCR controls are RGB modifiers on each of the controls altering the primary luminosities on that channel."
+		  name="White colour balance">
+      <seekBar  description="Red in white"
+		name="Red"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_white_red"
+                unit="" min="-64" reversed="false" step="1" max="20"/>
+      <seekBar  description="Green in white"
+		name="Green"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_white_green"
+                unit="" min="-64" reversed="false" step="1" max="20"/>
+      <seekBar  description="Blue in white"
+		name="Blue"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_white_blue"
+                unit="" min="-64" reversed="false" step="1" max="20"/>
+    </settingsPane>
+
+    <settingsPane description=""
+		  name="Primary (RGB) colour channels addends">
+      <seekBar  description="Red in red channel"
+		name="Red in red"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_red_red"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Green in red channel"
+		name="Green in red"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_red_green"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Blue in red channel"
+		name="Blue in red"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_red_blue"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Red in green channel"
+		name="Red in green"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_green_red"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Green in green channel"
+		name="Green in green"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_green_green"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Blue in green channel"
+		name="Blue in green"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_green_blue"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Red in blue channel"
+		name="Red in blue"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_blue_red"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Green in blue channel"
+		name="Green in blue"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_blue_green"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Blue in blue channel"
+		name="Blue in blue"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_blue_blue"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+    </settingsPane>
+
+    <settingsPane description=""
+		  name="Secondary (YCM) colour channels addends">
+      <seekBar  description="Red in yellow channel"
+		name="Red in yellow"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_yellow_red"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Green in yellow channel"
+		name="Green in yellow"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_yellow_green"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Blue in yellow channel"
+		name="Blue in yellow"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_yellow_blue"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Red in cyan channel"
+		name="Red in cyan"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_cyan_red"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Green in cyan channel"
+		name="Green in cyan"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_cyan_green"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Blue in cyan channel"
+		name="Blue in cyan"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_cyan_blue"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Red in magenta channel"
+		name="Red in magenta"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_magenta_red"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+      <seekBar  description="Green in magenta channel"
+		name="Green in magenta"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_magenta_green"
+                unit="" min="-32" reversed="false" step="1" max="64"/>
+      <seekBar  description="Blue in magenta channel"
+		name="Blue in magenta"
+                action="generic2 /sys/class/misc/mdnie/hook_control/scr_magenta_blue"
+                unit="" min="-64" reversed="false" step="1" max="32"/>
+    </settingsPane>
+  </settingsTab>
+
+  <settingsTab name="Misc">
+    <settingsPane description="Misc Settings" name="Misc Settings">
+      <checkbox description="Enable or Disable Android Logger (needs reboot)" name="Android Logger" action="generic01 /tmp/logger" label="Android Logger"/>
+      <checkbox description="Dynamic Fsync switch" name="Dynamic Fsync switch" action="generic01 /sys/kernel/dyn_fsync/Dyn_fsync_active" label="Dynamic Fsync"/>
+      <spinner description="This will set the default I/O scheduler. Default I/O scheduler will only be set during early stages of booting (before init.d execution) and can be overriden by later scripts or apps." name="Default I/O Scheduler" action="generic /sys/block/mmcblk0/queue/scheduler">
+`#Start I/O Scheduler dynamic block
+for IOSCHED in \`cat /sys/block/mmcblk0/queue/scheduler|sed -e 's/\]//;s/\[//'\`;
+do
+echo '             <spinnerItem name="'$IOSCHED'" value="'$IOSCHED'"/>'
+done
+#End I/O Scheduler dynamic block`
+      </spinner>
+      <seekBar  description="The read-ahead value for the internal storage." 
+                name="Internal storage read-ahead" 
+                action="generic /sys/block/mmcblk0/queue/read_ahead_kb"
+                unit="kB" min="128" reversed="false" step="128" max="2048"/>
+      <spinner description="Notification LED Behavior" name="Notification LED Behavior" action="generic /sys/devices/virtual/sec/led/led_fade">
+             <spinnerItem name="ROM default" value="-1"/> 
+             <spinnerItem name="Blinking" value="0"/> 
+             <spinnerItem name="Fading" value="1"/> 
+      </spinner>
+      <seekBar  description="Vibration intensity" 
+                name="Vibration intensity" 
+                action="generic /sys/vibrator/pwm_val"
+                unit="" min="0" reversed="false" step="10" max="100"/>
+      <seekBar description="AC,CDP,Dock charge currents (default 1000)" 
+		name="AC Charge" action="chargecurrent_ac" unit="mA" min="800" reversed="false" step="100" max="1200"/>
+      <seekBar description="USB charge current (default 475)" 
+		name="USB Charge" action="chargecurrent_usb" unit="mA" min="450" reversed="false" step="25" max="900"/>
+      <checkbox description="If checked, BetterBatteryStatus will report discrete (non-overlapping) wakelock statistics." name="Discrete Wakelock Stats" action="generic01 /sys/module/wakelock/parameters/default_stats" label="Discrete Wakelock Stats"/>
+    </settingsPane>
+
+    <settingsPane description="Zram" name="Zram">
+      <checkbox description="Changing any ZRAM setting NEEDS A REBOOT to be ACTIVATED !!! For the first time use, you may have to set ZRAM off then on followed by a reboot." name="Zram Switch" action="generic /tmp/zram_switch" label="ZRAM"/>
+        <seekBar description="Set ZRAM disk size in MB" 
+		name="Zram Size" action="generic /tmp/zram_size" unit=" MB" min="0" reversed="false" step="100" max="1000"/>
+        <spinner description="Set Swappiness in %" name="Swappiness" action="generic /tmp/zram_swappiness">
+             <spinnerItem name="60 %" value="60"/> 
+             <spinnerItem name="70 %" value="70"/> 
+             <spinnerItem name="80 %" value="80"/> 
+             <spinnerItem name="90 %" value="90"/> 
+             <spinnerItem name="100 %" value="100"/> 
+        </spinner>
+      </settingsPane>
+   </settingsTab>
+
+  <settingsTab name="ABB">
+    <settingsPane description="Adaptive Body Bias is a secondary voltage applied onto the body of the transistor, where as the normal voltage is the gate voltage. Adjusting the body voltage in a differential to the gate voltage changes the characteristics of the transistor in how it switches. The body bias is the delta of the body voltage to the gate voltage, or difference between gate voltage minus body voltage. A positive body bias results in a Forward Body Bias (FBB) which lowers the transistor switching threshold and allows for higher clocks at the same voltage, or lower voltage at the same clocks. A negative body bias, or Reverse Body Bias (RBB) raises the switching threshold and can drastically improve leakage, but with the reverse effects of FBB in terms of voltage and clocks. WARNING: For advanced users only who understand the electrical physics behind it."  
+                  name="Adaptive Body Bias">
+    </settingsPane>
+
+    <settingsPane description="ARM (CPU) body bias voltages."
+                  name="CPU">
+     <seekBar  description="Slice 1 frequencies: ..`cat /sys/devices/system/abb/arm/arm_slice_1_freq`."
+               name="Slice 1 voltage"
+               action="generic /sys/devices/system/abb/arm/arm_slice_1_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 2 frequencies: ..`cat /sys/devices/system/abb/arm/arm_slice_2_freq`."
+               name="Slice 2 voltage"
+               action="generic /sys/devices/system/abb/arm/arm_slice_2_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 3 frequencies: ..`cat /sys/devices/system/abb/arm/arm_slice_3_freq`."
+               name="Slice 3 voltage"
+               action="generic /sys/devices/system/abb/arm/arm_slice_3_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 4 frequencies: `cat /sys/devices/system/abb/arm/arm_slice_3_freq`."
+               name="Slice 4 voltage"
+               action="generic /sys/devices/system/abb/arm/arm_slice_4_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+    </settingsPane>
+
+    <settingsPane description="G3D (GPU) body bias voltages."
+                  name="GPU">
+     <seekBar  description="Slice 1 frequencies: ..`cat /sys/devices/system/abb/g3d/g3d_slice_1_freq`."
+               name="Slice 1 voltage"
+               action="generic /sys/devices/system/abb/g3d/g3d_slice_1_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 2 frequencies: ..`cat /sys/devices/system/abb/g3d/g3d_slice_2_freq`."
+               name="Slice 2 voltage"
+               action="generic /sys/devices/system/abb/g3d/g3d_slice_2_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 3 frequencies: `cat /sys/devices/system/abb/g3d/g3d_slice_2_freq`."
+               name="Slice 3 voltage"
+               action="generic /sys/devices/system/abb/g3d/g3d_slice_3_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+    </settingsPane>
+
+    <settingsPane description="MIF (Memory interface) body bias voltages."
+                  name="MIF">
+     <seekBar  description="Slice 1 frequencies: ..`cat /sys/devices/system/abb/mif/mif_slice_1_freq`."
+               name="Slice 1 voltage"
+               action="generic /sys/devices/system/abb/mif/mif_slice_1_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 2 frequencies: `cat /sys/devices/system/abb/mif/mif_slice_1_freq`."
+               name="Slice 2 voltage"
+               action="generic /sys/devices/system/abb/mif/mif_slice_2_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+    </settingsPane>
+
+    <settingsPane description="INT (Internal SoC) body bias voltages."
+                  name="INT">
+     <seekBar  description="Slice 1 frequencies: ..`cat /sys/devices/system/abb/int/int_slice_1_freq`."
+               name="Slice 1 voltage"
+               action="generic /sys/devices/system/abb/int/int_slice_1_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+     <seekBar  description="Slice 2 frequencies: `cat /sys/devices/system/abb/int/int_slice_1_freq`."
+               name="Slice 2 voltage"
+               action="generic /sys/devices/system/abb/int/int_slice_2_volt" 
+               unit="mV" min="600" reversed="false" step="50" max="1600"/>
+    </settingsPane>
+  </settingsTab>
+</settingsRoot>
+ENDCONFIG

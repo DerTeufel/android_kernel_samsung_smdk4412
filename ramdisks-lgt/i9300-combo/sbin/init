@@ -1,0 +1,148 @@
+#!/sbin/busybox sh
+
+BB=/sbin/busybox
+
+cd /
+
+$BB date >>boot.txt
+exec >>boot.txt 2>&1
+
+$BB echo "generating mount directories..."
+$BB mkdir proc
+$BB mkdir sys
+$BB mkdir system
+
+$BB mkdir /dev
+$BB mkdir /dev/block
+
+$BB mkdir /mnt
+$BB chmod 755 /mnt
+$BB mkdir /.secondrom
+
+$BB echo "generating device nodes..."
+$BB mknod /dev/block/mmcblk0 b 179 0
+$BB mknod /dev/block/mmcblk0p10 b 179 10  	# system
+$BB mknod /dev/block/mmcblk0p13 b 179 13	# data and .secondrom
+$BB mknod /dev/block/loop0 b 7 0
+
+$BB echo "mounting devices..."
+$BB mount -t proc proc /proc
+$BB mount -t sysfs sysfs /sys
+
+$BB mount -t ext4 /dev/block/mmcblk0p13 /.secondrom
+
+SECONDARYBOOT=0
+if $BB [ -f /.secondrom/.secondaryboot ] && $BB [ -f /.secondrom/media/.secondrom/system.img ] ; then
+SECONDARYBOOT=`$BB cat /.secondrom/.secondaryboot`
+fi
+
+if $BB [ "$SECONDARYBOOT" == 1 ]; then
+  $BB mount -t ext4 /.secondrom/media/.secondrom/system.img /system
+else
+   $BB mount -t ext4 /dev/block/mmcblk0p10 /system
+fi
+
+$BB mount
+
+
+#move .secondrom folder back to the original location if cm10.1 moved it to a subfolder
+if $BB [ -d /.secondrom/media/0/.secondrom ];then
+  if $BB [ ! -d /.secondrom/media/.secondrom ];then
+    $BB mkdir /.secondrom/media/.secondrom
+    $BB mv -f /.secondrom/media/0/.secondrom/* /.secondrom/media/.secondrom
+    $BB rmdir /.secondrom/media/0/.secondrom
+  fi
+fi
+
+CM101=0
+SAMMY42=0
+
+if $BB grep -q ro.build.version.release=4.3 /system/build.prop; then
+   CM102=1
+else
+$BB [ -f /system/framework/framework2.jar ] || CM101=1
+$BB [ -f /system/framework/telephony-common.jar ] && SAMMY42=1
+fi
+
+if $BB [ ! -f /system/etc/init.d/11setprop ]; then
+$BB echo "#!/system/bin/sh" > /system/etc/init.d/11setprop
+$BB echo "setprop ro.adb.secure 1" >> /system/etc/init.d/11setprop
+$BB echo "setprop ro.secure 1" >> /system/etc/init.d/11setprop
+$BB echo "setprop ro.allow.mock.location 0" >> /system/etc/init.d/11setprop
+$BB echo "setprop ro.debuggable 1" >> /system/etc/init.d/11setprop
+$BB echo "setprop persist.sys.usb.config mtp,adb" >> /system/etc/init.d/11setprop
+$BB chmod a+x /system/etc/init.d/11setprop
+fi
+
+if [ "$CM102" == 1 ]; then
+echo "using cm-10.2 initramfs"
+$BB mv -f /roms/cm102/* /
+   if $BB grep -q 1 /sys/class/power_supply/battery/batt_lp_charging ; then
+  	# low power mode
+ 	echo 0 > /proc/sys/kernel/rom_feature_set
+ 	$BB cp -f lpm.rc init.rc
+  	$BB rm -f init.SHV-E210L.rc
+   else
+   	echo 7 > /proc/sys/kernel/rom_feature_set
+	$BB mkdir -p /system/lib/modules
+	$BB mv /lib/modules/* /system/lib/modules/
+
+	if [ "$SECONDARYBOOT" == "1" ];then
+	  echo "secondary boot"
+  	  $BB mv /init.SHV-E210L.rc.2 /init.SHV-E210L.rc
+  	  $BB mv /fstab.SHV-E210L.2 /fstab.SHV-E210L
+
+	  $BB echo "#!/system/bin/sh" > /system/etc/init.d/10sd_mount
+	  $BB echo "/system/bin/sdcard /.secondrom/media /mnt/shell/emulated 1023 1023" >> /system/etc/init.d/10sd_mount
+	  $BB chmod a+x /system/etc/init.d/10sd_mount
+	fi
+   fi
+elif [ "$CM101" == 1 ]; then
+echo "using cm-10.1 initramfs"
+$BB mv -f /roms/cm101/* /
+   if $BB grep -q 1 /sys/class/power_supply/battery/batt_lp_charging ; then
+  	# low power mode
+ 	echo 0 > /proc/sys/kernel/rom_feature_set
+ 	$BB cp -f lpm.rc init.rc
+  	$BB rm -f init.SHV-E210L.rc
+   else
+   	echo 7 > /proc/sys/kernel/rom_feature_set
+	$BB mkdir -p /system/lib/modules
+	$BB mv /lib/modules/* /system/lib/modules/
+
+	if [ "$SECONDARYBOOT" == "1" ];then
+	  echo "secondary boot"
+  	  $BB mv /init.SHV-E210L.rc.2 /init.SHV-E210L.rc
+  	  $BB mv /fstab.SHV-E210L.2 /fstab.SHV-E210L
+
+	  $BB echo "#!/system/bin/sh" > /system/etc/init.d/10sd_mount
+	  $BB echo "/system/bin/sdcard /.secondrom/media /mnt/shell/emulated 1023 1023" >> /system/etc/init.d/10sd_mount
+	  $BB chmod a+x /system/etc/init.d/10sd_mount
+	fi
+   fi
+else
+echo "using sammy 4.1 initramfs"
+$BB mv -f /roms/sammy41/* /
+   if $BB grep -q 1 /sys/class/power_supply/battery/batt_lp_charging ; then
+  	# low power mode
+ 	echo 0 > /proc/sys/kernel/rom_feature_set
+ 	$BB cp -f lpm.rc init.rc
+  	$BB rm -f init.SHV-E210L.rc
+   else
+	echo 2 > /proc/sys/kernel/rom_feature_set
+	if [ "$SECONDARYBOOT" == "1" ];then
+	  echo "secondary boot"
+  	  $BB mv /init.SHV-E210L.rc.2 /init.SHV-E210L.rc
+  	  $BB mv /fstab.SHV-E210L.2 /fstab.SHV-E210L
+	fi
+   fi
+fi
+
+$BB umount -f /system
+$BB umount -f /.secondrom
+
+####### cleaning ###########
+$BB rm -rf /roms
+$BB rm -rf /lib/prop_modules
+#############################
+exec /sbin/init.2
