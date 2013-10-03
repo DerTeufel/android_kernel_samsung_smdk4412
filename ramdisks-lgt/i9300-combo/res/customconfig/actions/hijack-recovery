@@ -1,0 +1,4 @@
+#!/sbin/busybox sh
+
+dd if=/dev/block/mmcblk0p5 of=/dev/block/mmcblk0p6
+echo Recovery is hijacked. You will be able to boot into the 2ndROM Utils with 3-button combo.

@@ -1,0 +1,13 @@
+#!/sbin/busybox sh
+
+if [ "a$2" != "a" ];then
+  max_cpu_lock=$2
+fi
+echo $max_cpu_lock > /sys/devices/system/cpu/cpufreq/devilq/max_cpu_lock
+echo $max_cpu_lock > /sys/devices/system/cpu/cpufreq/pegasusq/max_cpu_lock
+echo $max_cpu_lock > /sys/devices/system/cpu/cpufreq/lulzactiveq/max_cpu_lock
+echo $max_cpu_lock > /sys/devices/system/cpu/cpufreq/zzmoove/max_cpu_lock
+echo $max_cpu_lock > /sys/devices/system/cpu/cpufreq/hotplug/max_cpu_lock
+echo $max_cpu_lock > /sys/devices/system/cpu/cpufreq/performance/max_cpu_lock
+
+echo $max_cpu_lock

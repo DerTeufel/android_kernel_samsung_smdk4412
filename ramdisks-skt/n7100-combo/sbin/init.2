@@ -1,0 +1,14 @@
+#!/sbin/busybox sh
+
+BB=/sbin/busybox
+
+export _PATH="$PATH"
+export PATH=/sbin
+
+cd /
+$BB rm /init
+
+$BB mv -f /init-orig /init
+
+export PATH="${_PATH}"
+exec /init

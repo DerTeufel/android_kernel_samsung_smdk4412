@@ -1,0 +1,18 @@
+#Authentec IPSec VPN
+on boot
+    insmod /lib/modules/vpnclient.ko ssh_procfs_uid=1000 ssh_procfs_gid=1000
+
+service vpnclientpm /system/bin/vpnclientpm -u 1000 -O /data/data/com.ipsec.vpnclient/vpnclientpm.txt
+    group system net_admin net_raw
+    disabled
+
+service secstarter /system/bin/secstarter
+    class main
+    user system
+    group system
+
+on property:vpnclientpm.enable=1
+    start vpnclientpm
+
+on property:vpnclientpm.enable=0
+    stop vpnclientpm
