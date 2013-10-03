@@ -1,0 +1,12 @@
+# Android fstab file.
+#<src>                  <mnt_point>         <type>    <mnt_flags and options>                               <fs_mgr_flags>
+# The filesystem that contains the filesystem checker binary (typically /system) cannot
+# specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
+
+
+/dev/block/mmcblk0p3    /efs                ext4      nosuid,nodev,noatime,noauto_da_alloc,discard,journal_async_commit,errors=panic    wait,check
+/dev/block/mmcblk0p10    /cache              ext4      nosuid,nodev,noatime,noauto_da_alloc,discard,journal_async_commit,errors=panic    wait,check
+
+# data partition must be located at the bottom for supporting device encryption
+/dev/block/mmcblk0p12    /.secondrom               ext4      nosuid,nodev,noatime,noauto_da_alloc,discard,journal_async_commit,errors=panic    wait,check,encryptable=footer
+

@@ -1,0 +1,3 @@
+#!/sbin/busybox sh
+mkdir -p /mnt/.secondrom/media/.secondrom/data
+mount --bind /mnt/.secondrom/media/.secondrom/data /data

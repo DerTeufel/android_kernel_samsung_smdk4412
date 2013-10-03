@@ -1,0 +1,28 @@
+#!/sbin/busybox sh
+# 1 - "generickmem"
+# 2 - symbol name
+# 3 - offset
+# 4 - type
+# 5 - value
+
+configname=$2$3
+
+if [ "a$5" == "a" ];then
+  evalcmd='eval "echo \$$configname"'
+  eval $evalcmd
+else
+  evalcmd='eval "$configname=$5"'
+  eval $evalcmd
+  evalcmd='eval "echo \$$configname"'
+  eval $evalcmd
+  case "$5" in
+    off)
+      kmemhelper -n $2 -o $3 -t $4 0 > /dev/null 2>&1
+      ;;
+    on)
+      kmemhelper -n $2 -o $3 -t $4 1 > /dev/null 2>&1
+      ;;
+  esac;
+fi
+
+

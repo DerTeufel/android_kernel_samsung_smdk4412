@@ -1,0 +1,17 @@
+#!/sbin/busybox sh
+
+if [ "a$2" == "a" ];then
+  echo $chargecurrent_ac
+else
+  chargecurrent_ac=$2
+  #in_curr_limit
+  kmemhelper -n samsung_battery_pdata -t int -o 24 $chargecurrent_ac > /dev/null 2>&1
+  #ac
+  kmemhelper -n samsung_battery_pdata -t int -o 28 $chargecurrent_ac > /dev/null 2>&1
+  #cdp
+  kmemhelper -n samsung_battery_pdata -t int -o 36 $chargecurrent_ac > /dev/null 2>&1
+  #dock
+  kmemhelper -n samsung_battery_pdata -t int -o 44 $chargecurrent_ac > /dev/null 2>&1
+  echo $chargecurrent_ac
+fi
+

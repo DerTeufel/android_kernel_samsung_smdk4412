@@ -1,0 +1,96 @@
+#!/sbin/busybox sh
+
+if [ "a$2" != "a" ];then
+
+filename=$(basename $2)
+
+if [ "a$3" == "a" ];then
+  evalcmd='eval "echo \$$filename"'
+  eval $evalcmd
+else
+  evalcmd='eval "$filename=$3"'
+  eval $evalcmd
+  evalcmd='eval "echo \$$filename"'
+  eval $evalcmd
+
+echo -${digital_gain}000 > /sys/class/misc/scoobydoo_sound/digital_gain
+#echo 1 A 0x0FBB > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+#echo 1 B 0x0407 > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+#echo 1 PG 0x0114 > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+#echo 2 A 0x1F8C > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+#echo 2 B 0xF073 > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+#echo 2 C 0x040A > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+#echo 2 PG 0x01C8 > /sys/class/misc/scoobydoo_sound/headphone_eq_bands_values
+
+if [ "$eq_selection" == "0" ];
+then
+case "$eq_preset" in
+  0)
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+  1)
+    echo 12 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 8 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo 3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo -1 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+  2)
+    echo 10 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 7 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo 2 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo 5 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+  3)
+    echo -5 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo 4 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo 3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+  4)
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo 0 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo -3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo -5 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+  5)
+    echo 8 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo -2 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo 3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo 8 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+  6)
+    echo 12 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo 8 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo 4 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo 2 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo 3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+    ;;
+esac;
+else
+    echo $eq_band1 > /sys/class/misc/scoobydoo_sound/headphone_eq_b1_gain
+    echo $eq_band2 > /sys/class/misc/scoobydoo_sound/headphone_eq_b2_gain
+    echo $eq_band3 > /sys/class/misc/scoobydoo_sound/headphone_eq_b3_gain
+    echo $eq_band4 > /sys/class/misc/scoobydoo_sound/headphone_eq_b4_gain
+    echo $eq_band5 > /sys/class/misc/scoobydoo_sound/headphone_eq_b5_gain
+    echo 1 > /sys/class/misc/scoobydoo_sound/headphone_eq
+fi
+
+fi
+fi

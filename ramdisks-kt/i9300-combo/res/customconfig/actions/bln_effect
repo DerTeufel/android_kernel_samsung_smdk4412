@@ -1,0 +1,25 @@
+#!/sbin/busybox sh
+
+if [ "a$2" != "a" ];then
+  bln_effect=$2
+
+  case "${bln_effect}" in
+    0) 
+      echo 0 > /sys/class/misc/notification/breathing
+      ;;
+    1)
+      echo 1 > /sys/class/misc/notification/breathing
+      echo reset > /sys/class/misc/notification/breathing_steps
+      echo 2600 3300 70 50 > /sys/class/misc/notification/breathing_steps
+      echo 3300 2600 70 50 > /sys/class/misc/notification/breathing_steps
+      ;;
+    2)
+      echo 1 > /sys/class/misc/notification/breathing
+      echo reset > /sys/class/misc/notification/breathing_steps
+      echo 2500 2500 1000 100 > /sys/class/misc/notification/breathing_steps
+      echo 3300 3300 1000 100 > /sys/class/misc/notification/breathing_steps
+      ;;
+  esac;
+fi
+
+echo ${bln_effect}
