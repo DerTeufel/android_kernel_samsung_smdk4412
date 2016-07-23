@@ -1,13 +1,3 @@
-config MALI400
-	tristate "Mali-300/400/450 support"
-	depends on ARM
-	select FB
-	---help---
-	  This enables support for the Mali-300, Mali-400, and Mali-450 GPUs.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called mali.
-
 config MALI400_DEBUG
 	bool "Enable debug in Mali driver"
 	depends on MALI400

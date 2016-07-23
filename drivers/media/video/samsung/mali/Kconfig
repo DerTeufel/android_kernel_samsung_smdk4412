@@ -6,7 +6,7 @@
 config VIDEO_MALI400MP
 	bool "Enable MALI integration"
 	depends on VIDEO_SAMSUNG
-	default y
+	default n
 	---help---
                 This enables MALI integration in the multimedia device driver
 

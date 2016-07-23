@@ -37,6 +37,7 @@
 #include <linux/rculist_bl.h>
 #include <linux/prefetch.h>
 #include "internal.h"
+#include "mount.h"
 
 /*
  * Usage:
@@ -2519,9 +2520,8 @@ static int prepend_path(const struct path *path,
 
 		if (dentry == vfsmnt->mnt_root || IS_ROOT(dentry)) {
 			/* Global root? */
-			if (vfsmnt->mnt_parent == vfsmnt) {
+			if (!mnt_has_parent(vfsmnt))
 				goto global_root;
-			}
 			dentry = vfsmnt->mnt_mountpoint;
 			vfsmnt = vfsmnt->mnt_parent;
 			continue;
@@ -2911,31 +2911,6 @@ int is_subdir(struct dentry *new_dentry, struct dentry *old_dentry)
 
 	return result;
 }
-
-int path_is_under(struct path *path1, struct path *path2)
-{
-	struct vfsmount *mnt = path1->mnt;
-	struct dentry *dentry = path1->dentry;
-	int res;
-
-	br_read_lock(vfsmount_lock);
-	if (mnt != path2->mnt) {
-		for (;;) {
-			if (mnt->mnt_parent == mnt) {
-				br_read_unlock(vfsmount_lock);
-				return 0;
-			}
-			if (mnt->mnt_parent == path2->mnt)
-				break;
-			mnt = mnt->mnt_parent;
-		}
-		dentry = mnt->mnt_mountpoint;
-	}
-	res = is_subdir(dentry, path2->dentry);
-	br_read_unlock(vfsmount_lock);
-	return res;
-}
-EXPORT_SYMBOL(path_is_under);
 
 void d_genocide(struct dentry *root)
 {

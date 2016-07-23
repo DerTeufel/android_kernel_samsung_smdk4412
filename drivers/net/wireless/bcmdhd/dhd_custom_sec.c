@@ -324,14 +324,16 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 #define CIS_BUF_SIZE            512
 #endif /* BCM4330_CHIP */
 
+#define MACBUFFER_SZ (sizeof("00:11:22:33:44:55\n"))
+
 #ifdef READ_MACADDR
 int dhd_read_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 {
 	struct file *fp      = NULL;
-	char macbuffer[18]   = {0};
+	char macbuffer[MACBUFFER_SZ]   = {0};
 	mm_segment_t oldfs   = {0};
 	char randommac[3]    = {0};
-	char buf[18]         = {0};
+	char buf[MACBUFFER_SZ]         = {0};
 	char *filepath_efs       = MACINFO_EFS;
 	int ret = 0;
 
@@ -350,13 +352,13 @@ start_readmac:
 		/* Generating the Random Bytes for 3 last octects of the MAC address */
 		get_random_bytes(randommac, 3);
 
-		sprintf(macbuffer, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+		sprintf(macbuffer, "%02X:%02X:%02X:%02hhX:%02hhX:%02hhX\n",
 			0x00, 0x12, 0x34, randommac[0], randommac[1], randommac[2]);
 		DHD_ERROR(("[WIFI]The Random Generated MAC ID: %s\n", macbuffer));
 
 		if (fp->f_mode & FMODE_WRITE) {
 			ret = fp->f_op->write(fp, (const char *)macbuffer,
-			sizeof(macbuffer), &fp->f_pos);
+			sizeof(macbuffer) - 1 /* skip null byte */, &fp->f_pos);
 			if (ret < 0)
 				DHD_ERROR(("[WIFI]MAC address [%s] Failed to write into File: %s\n",
 					macbuffer, filepath_efs));
@@ -386,10 +388,10 @@ start_readmac:
 	}
 
 	if (ret)
-		sscanf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
-			(unsigned int *)&(mac->octet[0]), (unsigned int *)&(mac->octet[1]),
-			(unsigned int *)&(mac->octet[2]), (unsigned int *)&(mac->octet[3]),
-			(unsigned int *)&(mac->octet[4]), (unsigned int *)&(mac->octet[5]));
+		sscanf(buf, MACF_U,
+			&(mac->octet[0]), &(mac->octet[1]),
+			&(mac->octet[2]), &(mac->octet[3]),
+			&(mac->octet[4]), &(mac->octet[5]));
 	else
 		DHD_ERROR(("dhd_bus_start: Reading from the '%s' returns 0 bytes\n", filepath_efs));
 
@@ -423,14 +425,14 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 	char *filepath_data = MACINFO;
 	char *filepath_efs = MACINFO_EFS;
 	struct file *fp_mac = NULL;
-	char buf[18]      = {0};
+	char buf[MACBUFFER_SZ]      = {0};
 	mm_segment_t oldfs    = {0};
 	int ret = -1;
 
 	if ((g_imac_flag != MACADDR_COB) && (g_imac_flag != MACADDR_MOD))
 		return 0;
 
-	sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+	sprintf(buf, MACF_U "\n",
 		mac->octet[0], mac->octet[1], mac->octet[2],
 		mac->octet[3], mac->octet[4], mac->octet[5]);
 
@@ -445,7 +447,7 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 
 		if (fp_mac->f_mode & FMODE_WRITE) {
 			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
+				sizeof(buf) - 1 /* skip null byte */, &fp_mac->f_pos);
 			if (ret < 0)
 				DHD_ERROR(("[WIFI] Mac address [%s] Failed"
 				" to write into File: %s\n", buf, filepath_data));
@@ -467,7 +469,7 @@ int dhd_write_rdwr_macaddr(struct ether_addr *mac)
 
 		if (fp_mac->f_mode & FMODE_WRITE) {
 			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
+				sizeof(buf) - 1 /* skip null byte */, &fp_mac->f_pos);
 			if (ret < 0)
 				DHD_ERROR(("[WIFI] Mac address [%s] Failed"
 				" to write into File: %s\n", buf, filepath_efs));
@@ -488,9 +490,9 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 {
 	struct file *fp_mac = NULL;
 	struct file *fp_nvm = NULL;
-	char macbuffer[18]    = {0};
+	char macbuffer[MACBUFFER_SZ]    = {0};
 	char randommac[3]   = {0};
-	char buf[18]      = {0};
+	char buf[MACBUFFER_SZ]      = {0};
 	char *filepath_data      = MACINFO;
 	char *filepath_efs      = MACINFO_EFS;
 #ifdef CONFIG_TARGET_LOCALE_NA
@@ -500,7 +502,7 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 #endif
 	char cur_mac[128]   = {0};
 	char dummy_mac[ETHER_ADDR_LEN] = {0x00, 0x90, 0x4C, 0xC5, 0x12, 0x38};
-	char cur_macbuffer[18]  = {0};
+	char cur_macbuffer[MACBUFFER_SZ]  = {0};
 	int ret = -1;
 
 	g_imac_flag = MACADDR_NONE;
@@ -519,11 +521,12 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 		} else {
 			DHD_ERROR(("MAC (OTP) : "
 			"[%02X:%02X:%02X:%02X:%02X:%02X] \r\n",
-			cur_mac[0], cur_mac[1], cur_mac[2], cur_mac[3],
-			cur_mac[4], cur_mac[5]));
+			(unsigned)cur_mac[0], (unsigned)cur_mac[1],
+			(unsigned)cur_mac[2], (unsigned)cur_mac[3],
+			(unsigned)cur_mac[4], (unsigned)cur_mac[5]));
 		}
 
-		sprintf(cur_macbuffer, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+		sprintf(cur_macbuffer, MACF_U "\n",
 			cur_mac[0], cur_mac[1], cur_mac[2],
 			cur_mac[3], cur_mac[4], cur_mac[5]);
 
@@ -552,13 +555,13 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 					" Trying Random MAC.\n"));
 				g_imac_flag = MACADDR_MOD_RANDOM;
 			} else {
-				sscanf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
-					(unsigned int *)&(mac->octet[0]),
-					(unsigned int *)&(mac->octet[1]),
-					(unsigned int *)&(mac->octet[2]),
-					(unsigned int *)&(mac->octet[3]),
-					(unsigned int *)&(mac->octet[4]),
-					(unsigned int *)&(mac->octet[5]));
+				sscanf(buf, MACF_U,
+					&(mac->octet[0]),
+					&(mac->octet[1]),
+					&(mac->octet[2]),
+					&(mac->octet[3]),
+					&(mac->octet[4]),
+					&(mac->octet[5]));
 			/* current MAC address is same as previous one */
 				if (memcmp(cur_mac, mac->octet, ETHER_ADDR_LEN) == 0) {
 					g_imac_flag = MACADDR_NONE;
@@ -601,13 +604,13 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 					" Trying Random MAC.\n"));
 				g_imac_flag = MACADDR_MOD_RANDOM;
 			} else {
-				sscanf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
-					(unsigned int *)&(mac->octet[0]),
-					(unsigned int *)&(mac->octet[1]),
-					(unsigned int *)&(mac->octet[2]),
-					(unsigned int *)&(mac->octet[3]),
-					(unsigned int *)&(mac->octet[4]),
-					(unsigned int *)&(mac->octet[5]));
+				sscanf(buf, MACF_U,
+					&(mac->octet[0]),
+					&(mac->octet[1]),
+					&(mac->octet[2]),
+					&(mac->octet[3]),
+					&(mac->octet[4]),
+					&(mac->octet[5]));
 			/* current MAC address is same as previous one */
 				if (memcmp(cur_mac, mac->octet, ETHER_ADDR_LEN) == 0) {
 					g_imac_flag = MACADDR_NONE;
@@ -642,13 +645,13 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 			(strncmp(buf, "00:00:00:00:00:00", 17) == 0)) {
 			g_imac_flag = MACADDR_COB_RANDOM;
 		} else {
-			sscanf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
-				(unsigned int *)&(mac->octet[0]),
-				(unsigned int *)&(mac->octet[1]),
-				(unsigned int *)&(mac->octet[2]),
-				(unsigned int *)&(mac->octet[3]),
-				(unsigned int *)&(mac->octet[4]),
-				(unsigned int *)&(mac->octet[5]));
+			sscanf(buf, MACF_U,
+				&(mac->octet[0]),
+				&(mac->octet[1]),
+				&(mac->octet[2]),
+				&(mac->octet[3]),
+				&(mac->octet[4]),
+				&(mac->octet[5]));
 			/* Writing Newly generated MAC ID to the Dongle */
 			if (_dhd_set_mac_address(dhd, 0, mac) == 0) {
 				DHD_INFO(("%s: MACID is overwritten\n",
@@ -665,18 +668,18 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 	if ((g_imac_flag == MACADDR_COB_RANDOM) ||
 	    (g_imac_flag == MACADDR_MOD_RANDOM)) {
 		get_random_bytes(randommac, 3);
-		sprintf(macbuffer, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+		sprintf(macbuffer, "%02X:%02X:%02X:%02hhX:%02hhX:%02hhX\n",
 			0x60, 0xd0, 0xa9, randommac[0], randommac[1],
 			randommac[2]);
 		DHD_ERROR(("[WIFI] The Random Generated MAC ID : %s\n",
 			macbuffer));
-		sscanf(macbuffer, "%02X:%02X:%02X:%02X:%02X:%02X",
-			(unsigned int *)&(mac->octet[0]),
-			(unsigned int *)&(mac->octet[1]),
-			(unsigned int *)&(mac->octet[2]),
-			(unsigned int *)&(mac->octet[3]),
-			(unsigned int *)&(mac->octet[4]),
-			(unsigned int *)&(mac->octet[5]));
+		sscanf(macbuffer, MACF_U,
+			&(mac->octet[0]),
+			&(mac->octet[1]),
+			&(mac->octet[2]),
+			&(mac->octet[3]),
+			&(mac->octet[4]),
+			&(mac->octet[5]));
 		if (_dhd_set_mac_address(dhd, 0, mac) == 0) {
 			DHD_INFO(("%s: MACID is overwritten\n", __FUNCTION__));
 			g_imac_flag = MACADDR_COB;
@@ -694,10 +697,10 @@ int dhd_check_rdwr_macaddr(struct dhd_info *dhd, dhd_pub_t *dhdp,
 int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 {
 	struct file *fp      = NULL;
-	char macbuffer[18]   = {0};
+	char macbuffer[MACBUFFER_SZ]   = {0};
 	mm_segment_t oldfs   = {0};
 	char randommac[3]    = {0};
-	char buf[18]         = {0};
+	char buf[MACBUFFER_SZ]         = {0};
 	char *filepath_efs       = MACINFO_EFS;
 	int is_zeromac       = 0;
 	int ret = 0;
@@ -721,7 +724,7 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 		 */
 		get_random_bytes(randommac, 3);
 
-		sprintf(macbuffer, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+		sprintf(macbuffer, "%02X:%02X:%02X:%02hhX:%02hhX:%02hhX\n",
 			0x60, 0xd0, 0xa9, randommac[0],
 			randommac[1], randommac[2]);
 		DHD_ERROR(("[WIFI] The Random Generated MAC ID : %s\n",
@@ -730,7 +733,7 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 		if (fp->f_mode & FMODE_WRITE) {
 			ret = fp->f_op->write(fp,
 				(const char *)macbuffer,
-				sizeof(macbuffer), &fp->f_pos);
+				sizeof(macbuffer) - 1 /* skip null byte */, &fp->f_pos);
 			if (ret < 0)
 				DHD_ERROR(("[WIFI] Mac address [%s]"
 					" Failed to write into File:"
@@ -761,13 +764,13 @@ int dhd_write_rdwr_korics_macaddr(struct dhd_info *dhd, struct ether_addr *mac)
 	}
 
 	if (ret)
-		sscanf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
-			(unsigned int *)&(mac->octet[0]),
-			(unsigned int *)&(mac->octet[1]),
-			(unsigned int *)&(mac->octet[2]),
-			(unsigned int *)&(mac->octet[3]),
-			(unsigned int *)&(mac->octet[4]),
-			(unsigned int *)&(mac->octet[5]));
+		sscanf(buf, MACF_U,
+			&(mac->octet[0]),
+			&(mac->octet[1]),
+			&(mac->octet[2]),
+			&(mac->octet[3]),
+			&(mac->octet[4]),
+			&(mac->octet[5]));
 	else
 		DHD_INFO(("dhd_bus_start: Reading from the"
 			" '%s' returns 0 bytes\n", filepath_efs));
@@ -827,8 +830,8 @@ static void dhd_dump_cis(const unsigned char *buf, int size)
 {
 	int i;
 	for (i = 0; i < size; i++) {
-		DHD_ERROR(("%02X ", buf[i]));
-		if ((i % 15) == 15) DHD_ERROR(("\n"));
+		DHD_ERROR(("%02X ", (unsigned)buf[i]));
+		if ((i % 15) == 15) DHD_ERROR(("\n")); /* FIXME: Will always be false */
 	}
 	DHD_ERROR(("\n"));
 }
@@ -1054,11 +1057,14 @@ int dhd_check_module_mac(dhd_pub_t *dhd, struct ether_addr *mac)
 	if (ret < 0) {
 		DHD_TRACE(("%s: CIS reading failed, err=%d\n", __func__,
 			ret));
-		sprintf(otp_mac_buf, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+		sprintf(otp_mac_buf, MACF_U "\n",
 			mac->octet[0], mac->octet[1], mac->octet[2],
 			mac->octet[3], mac->octet[4], mac->octet[5]);
 		DHD_ERROR(("%s: Check module mac by legacy FW : %02X:%02X:%02X\n",
-			__func__, mac->octet[0], mac->octet[4], mac->octet[5]));
+			__func__,
+			(unsigned)mac->octet[0],
+			(unsigned)mac->octet[4],
+			(unsigned)mac->octet[5]));
 	} else {
 		unsigned char mac_id[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 #ifdef DUMP_CIS
@@ -1071,7 +1077,7 @@ int dhd_check_module_mac(dhd_pub_t *dhd, struct ether_addr *mac)
 		mac_id[4] = cis_buf[CIS_MAC_OFFSET + 4];
 		mac_id[5] = cis_buf[CIS_MAC_OFFSET + 5];
 
-		sprintf(otp_mac_buf, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+		sprintf(otp_mac_buf, MACF_U "\n",
 			mac_id[0], mac_id[1], mac_id[2], mac_id[3], mac_id[4],
 			mac_id[5]);
 		DHD_ERROR(("[WIFI]mac_id is setted from OTP \n"));
@@ -1100,14 +1106,14 @@ int dhd_write_macaddr(struct ether_addr *mac)
 	char *filepath_efs      = MACINFO_EFS;
 
 	struct file *fp_mac = NULL;
-	char buf[18]      = {0};
+	char buf[MACBUFFER_SZ]   = {0};
 	mm_segment_t oldfs    = {0};
 	int ret = -1;
 	int retry_count = 0;
 
 startwrite:
 
-	sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X\n",
+	sprintf(buf, MACF_U "\n",
 		mac->octet[0], mac->octet[1], mac->octet[2],
 		mac->octet[3], mac->octet[4], mac->octet[5]);
 
@@ -1123,7 +1129,7 @@ startwrite:
 
 		if (fp_mac->f_mode & FMODE_WRITE) {
 			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
+				sizeof(buf) - 1 /* skip null byte */, &fp_mac->f_pos);
 			if (ret < 0)
 				DHD_ERROR(("[WIFI] Mac address [%s] Failed to"
 				" write into File: %s\n", buf, filepath_data));
@@ -1163,7 +1169,7 @@ startwrite:
 
 		if (fp_mac->f_mode & FMODE_WRITE) {
 			ret = fp_mac->f_op->write(fp_mac, (const char *)buf,
-				sizeof(buf), &fp_mac->f_pos);
+				sizeof(buf) - 1 /* skip null byte */, &fp_mac->f_pos);
 			if (ret < 0)
 				DHD_ERROR(("[WIFI] Mac address [%s] Failed to"
 				" write into File: %s\n", buf, filepath_efs));
